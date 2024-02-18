@@ -2,6 +2,7 @@
 #define BASE64_HPP_
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <stdexcept>
