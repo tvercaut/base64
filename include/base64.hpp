@@ -10,7 +10,7 @@
 
 namespace base64 {
 
-namespace {
+namespace detail {
 
 std::array<char, 64> constexpr encode_table{
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
@@ -45,11 +45,12 @@ std::array<std::uint8_t, 256> constexpr decode_table{
     0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
     0x64, 0x64, 0x64, 0x64};
 
-}  // end anonymous namespace
+}  // namespace detail
 
 inline std::string to_base64(std::string_view binaryText) {
-  std::string encoded(
-      (binaryText.size() / 3 + (binaryText.size() % 3 > 0)) << 2, padding_char);
+  std::string encoded((binaryText.size() / 3 + (binaryText.size() % 3 > 0))
+                          << 2,
+                      detail::padding_char);
 
   const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&binaryText[0]);
   char* currEncoding = &encoded[0];
@@ -65,33 +66,33 @@ inline std::string to_base64(std::string_view binaryText) {
        --i, bytes += 3, currEncoding += 4) {
     byteunion.temp = bytes[0] << 16 | bytes[1] << 8 | bytes[2];
 
-    currEncoding[0] = encode_table[byteunion.tempBytes.fourth];
-    currEncoding[1] = encode_table[byteunion.tempBytes.third];
-    currEncoding[2] = encode_table[byteunion.tempBytes.second];
-    currEncoding[3] = encode_table[byteunion.tempBytes.first];
+    currEncoding[0] = detail::encode_table[byteunion.tempBytes.fourth];
+    currEncoding[1] = detail::encode_table[byteunion.tempBytes.third];
+    currEncoding[2] = detail::encode_table[byteunion.tempBytes.second];
+    currEncoding[3] = detail::encode_table[byteunion.tempBytes.first];
   }
 
   switch (binaryText.size() % 3) {
     case 1: {
       byteunion.temp = bytes[0] << 16;
 
-      currEncoding[0] = encode_table[byteunion.tempBytes.fourth];
-      currEncoding[1] = encode_table[byteunion.tempBytes.third];
+      currEncoding[0] = detail::encode_table[byteunion.tempBytes.fourth];
+      currEncoding[1] = detail::encode_table[byteunion.tempBytes.third];
       break;
     }
     case 2: {
       byteunion.temp = bytes[0] << 16 | bytes[1] << 8;
 
-      currEncoding[0] = encode_table[byteunion.tempBytes.fourth];
-      currEncoding[1] = encode_table[byteunion.tempBytes.third];
-      currEncoding[2] = encode_table[byteunion.tempBytes.second];
+      currEncoding[0] = detail::encode_table[byteunion.tempBytes.fourth];
+      currEncoding[1] = detail::encode_table[byteunion.tempBytes.third];
+      currEncoding[2] = detail::encode_table[byteunion.tempBytes.second];
     } break;
-  case 0: {
-    break;
-  }
-  default: {
-    throw std::runtime_error{"Invalid base64 encoded data"};
-  }
+    case 0: {
+      break;
+    }
+    default: {
+      throw std::runtime_error{"Invalid base64 encoded data"};
+    }
   }
 
   return encoded;
@@ -122,8 +123,9 @@ inline std::string from_base64(std::string_view base64Text) {
         "Invalid base64 encoded data - Found more than 2 padding signs"};
   }
 
-  uint32_t numPadding = (*std::prev(base64Text.end(), 1) == padding_char) +
-                        (*std::prev(base64Text.end(), 2) == padding_char);
+  uint32_t numPadding =
+      (*std::prev(base64Text.end(), 1) == detail::padding_char) +
+      (*std::prev(base64Text.end(), 2) == detail::padding_char);
 
   std::string decoded((base64Text.size() * 3 >> 2) - numPadding, '.');
 
@@ -136,39 +138,44 @@ inline std::string from_base64(std::string_view base64Text) {
 
   for (uint32_t i = (base64Text.size() >> 2) - (numPadding != 0); i;
        --i, bytes += 4, currDecoding += 3) {
-    if (decode_table[bytes[0]] == 0x64 || decode_table[bytes[1]] == 0x64 ||
-        decode_table[bytes[2]] == 0x64 || decode_table[bytes[3]] == 0x64) {
+    if (detail::decode_table[bytes[0]] == 0x64 ||
+        detail::decode_table[bytes[1]] == 0x64 ||
+        detail::decode_table[bytes[2]] == 0x64 ||
+        detail::decode_table[bytes[3]] == 0x64) {
       throw std::runtime_error{
           "Invalid base64 encoded data - Invalid character"};
     }
 
-    temp = decode_table[bytes[0]] << 18 | decode_table[bytes[1]] << 12 |
-           decode_table[bytes[2]] << 6 | decode_table[bytes[3]];
+    temp = detail::decode_table[bytes[0]] << 18 |
+           detail::decode_table[bytes[1]] << 12 |
+           detail::decode_table[bytes[2]] << 6 | detail::decode_table[bytes[3]];
     currDecoding[0] = static_cast<char>(tempBytes[2]);
     currDecoding[1] = static_cast<char>(tempBytes[1]);
     currDecoding[2] = static_cast<char>(tempBytes[0]);
   }
 
   switch (numPadding) {
-  case 2: {
-      temp = decode_table[bytes[0]] << 18 | decode_table[bytes[1]] << 12;
+    case 2: {
+      temp = detail::decode_table[bytes[0]] << 18 |
+             detail::decode_table[bytes[1]] << 12;
       currDecoding[0] = static_cast<char>(tempBytes[2]);
       break;
-  }
-  case 1: {
-      temp = decode_table[bytes[0]] << 18 | decode_table[bytes[1]] << 12 |
-             decode_table[bytes[2]] << 6;
+    }
+    case 1: {
+      temp = detail::decode_table[bytes[0]] << 18 |
+             detail::decode_table[bytes[1]] << 12 |
+             detail::decode_table[bytes[2]] << 6;
       currDecoding[0] = static_cast<char>(tempBytes[2]);
       currDecoding[1] = static_cast<char>(tempBytes[1]);
       break;
-  }
-  case 0: {
+    }
+    case 0: {
       break;
-  }
-  default: {
+    }
+    default: {
       throw std::runtime_error{
           "Invalid base64 encoded data - Invalid padding number"};
-  }
+    }
   }
 
   return decoded;
